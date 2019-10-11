@@ -1,19 +1,34 @@
+from dotenv import load_dotenv
 import os
 import praw
 import requests
 import time
 import tweepy
 
+# Dotenv file loading
+load_dotenv()
+
 # Chosen subreddits ("i.e. subreddit = "earthporn+winterporn")
-subreddit = "<SUBREDDIT>"
+SUBREDDIT = os.getenv("SUBREDDIT") 
+
+# Twitter credentials
+CONSUMER_KEY = os.getenv("CONSUMER_KEY")
+CONSUMER_SECRET= os.getenv("CONSUMER_SECRET")
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
+ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
+
+# Reddit credentials
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+USER_AGENT = os.getenv("USER_AGENT")
 
 def twitter_api():
     """
     Returns a Twitter API object with your Twitter API keys
     """
-    auth = tweepy.OAuthHandler("<YOUR_CONSUMER_KEY>", "<YOUR_CONSUMER_SECRET>")
+    auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
     auth.secure = True
-    auth.set_access_token("<YOUR_ACCESS_TOKEN>","<YOUR_ACCESS_TOKEN_SECRET>")
+    auth.set_access_token(ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
     twitter_api = tweepy.API(auth)
     return twitter_api
 
@@ -21,9 +36,9 @@ def reddit_api():
     """
     Returns a Reddit API object with your Reddit API keys
     """
-    reddit_api = praw.Reddit(client_id="<YOUR_CLIENT_ID>",
-                            client_secret="<YOUR_CLIENT_SECRET>",
-                            user_agent="<YOUR_USER_AGENT>")
+    reddit_api = praw.Reddit(client_id=CLIENT_ID,
+                            client_secret=CLIENT_SECRET,
+                            user_agent=USER_AGENT)
     return reddit_api
 
 def get_submissions_stream(subreddit):
@@ -81,4 +96,4 @@ def traverse_subreddit(submissions_stream):
         finally:
             time.sleep(60)
 
-traverse_subreddit(get_submissions_stream(subreddit))
+traverse_subreddit(get_submissions_stream(SUBREDDIT))
