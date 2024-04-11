@@ -1,6 +1,6 @@
 certifi==2023.7.22
 chardet==3.0.4
-idna==2.8
+idna==3.7
 oauthlib==3.1.0
 praw==6.4.0
 prawcore==1.0.1
