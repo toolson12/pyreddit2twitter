@@ -5,7 +5,7 @@ oauthlib==3.1.0
 praw==6.4.0
 prawcore==1.0.1
 PySocks==1.7.1
-python-dotenv==0.10.3
+python-dotenv==1.2.2
 requests==2.33.0
 requests-oauthlib==1.2.0
 six==1.12.0
