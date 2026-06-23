@@ -16,21 +16,65 @@ CONSUMER_KEY = os.getenv("CONSUMER_KEY")
 CONSUMER_SECRET= os.getenv("CONSUMER_SECRET")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
+POST_BACKEND = os.getenv("POST_BACKEND", "twitter").lower()
+XQUIK_API_KEY = os.getenv("XQUIK_API_KEY")
+XQUIK_ACCOUNT = os.getenv("XQUIK_ACCOUNT")
+XQUIK_BASE_URL = os.getenv("XQUIK_BASE_URL", "https://xquik.com").rstrip("/")
 
 # Reddit credentials
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 USER_AGENT = os.getenv("USER_AGENT")
 
+def post_with_xquik(message, media_url=None):
+    """
+    Posts a tweet through Xquik. Media URLs must be public HTTP(S) URLs.
+    """
+    missing = []
+    if not XQUIK_API_KEY:
+        missing.append("XQUIK_API_KEY")
+    if not XQUIK_ACCOUNT:
+        missing.append("XQUIK_ACCOUNT")
+    if missing:
+        raise RuntimeError("Xquik backend requires " + ", ".join(missing))
+
+    payload = {
+        "account": XQUIK_ACCOUNT,
+        "text": message,
+    }
+    if media_url:
+        payload["media"] = [media_url]
+
+    response = requests.post(
+        XQUIK_BASE_URL + "/api/v1/x/tweets",
+        headers={"x-api-key": XQUIK_API_KEY},
+        json=payload,
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
 def twitter_api():
     """
     Returns a Twitter API object with your Twitter API keys
     """
+    if POST_BACKEND == "xquik":
+        return None
     auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
     auth.secure = True
     auth.set_access_token(ACCESS_TOKEN,ACCESS_TOKEN_SECRET)
     twitter_api = tweepy.API(auth)
     return twitter_api
+
+def post_status(twitter_api, message, media_url=None, filename=None):
+    """
+    Posts through the selected backend.
+    """
+    if POST_BACKEND == "xquik":
+        return post_with_xquik(message, media_url=media_url)
+    if filename is not None:
+        return twitter_api.update_with_media(filename, status=message)
+    return twitter_api.update_status(message)
 
 def reddit_api():
     """
@@ -56,15 +100,27 @@ def tweet_image(twitter_api, url, message):
     (usually because of gifs or heavy files) then the URL itself is used as message
     """
     try:
+        if POST_BACKEND == "xquik":
+            post_status(twitter_api, message, media_url=url)
+            print(url + " uploaded successfully.")
+            return
+
         filename = 'temp.jpg'
         request = requests.get(url, stream=True)
         if request.status_code == 200:
             with open(filename, 'wb') as image:
                 for chunk in request:
                     image.write(chunk)
-            twitter_api.update_with_media(filename, status=message)
+            post_status(twitter_api, message, filename=filename)
             print(url + " uploaded successfully.")
             os.remove(filename)
+        else:
+            raise tweepy.TweepError([{'message': 'Error creating status.', 'code': 189}])
+    except requests.RequestException:
+        if POST_BACKEND == "xquik":
+            message += url
+            post_status(twitter_api, message)
+            print(url + " could not be directly uploaded. Permalink was used as message instead.")
         else:
             raise tweepy.TweepError([{'message': 'Error creating status.', 'code': 189}])
     except tweepy.TweepError as e:
@@ -73,7 +129,7 @@ def tweet_image(twitter_api, url, message):
             time.sleep(60*15)
         elif e.api_code == 189 or e.api_code == None:
             message += url
-            twitter_api.update_status(message)
+            post_status(twitter_api, message)
             print(url + " could not be directly uploaded. Permalink was used as message instead.")
         else:
             print(e)
